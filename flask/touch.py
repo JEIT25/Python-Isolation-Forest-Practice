@@ -25,43 +25,82 @@ def connect_db():
 def get_attendee_records():
     conn = connect_db()
     cursor = conn.cursor()
-    query = "SELECT * FROM attendee_records WHERE event_id = 21 AND single_signin IS NULL AND check_out IS NOT NULL AND check_in IS NOT NULL"
+    # query = "SELECT * FROM attendee_records WHERE event_id = 21 AND single_signin IS NULL AND check_out IS NOT NULL AND check_in IS NOT NULL"
+    query = "SELECT * FROM attendee_records WHERE event_id = 37"
     results = pd.read_sql(query,conn) # this exceutes the query to fetch data and turns it into pandas Dataframe
     cursor.close
     conn.close()
     return results
 
 
+##incase turn timezone to manila
+# # Convert check_in and check_out timestamp string (YYYY-MM-DD HH:MM:SS) to minutes from midnight
+# def data_prep(df):
+#     # Localize and convert to Manila time
+#     df['check_in'] = pd.to_datetime(df['check_in']).dt.tz_localize('UTC').dt.tz_convert('Asia/Manila')
+#     df['check_out'] = pd.to_datetime(df['check_out']).dt.tz_localize('UTC').dt.tz_convert('Asia/Manila')
+#     df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_localize('UTC').dt.tz_convert('Asia/Manila')
+
+#     # Calculate minutes from midnight (in Manila time)
+#     df['check_in_minutes'] = df['check_in'].dt.hour * 60 + df['check_in'].dt.minute
+#     df['check_out_minutes'] = df['check_out'].dt.hour * 60 + df['check_out'].dt.minute
+
+#     # Format the datetime fields to strings with timezone indicated
+#     df['check_in'] = df['check_in'].dt.strftime('%a, %d %b %Y %H:%M:%S Manila')
+#     df['check_out'] = df['check_out'].dt.strftime('%a, %d %b %Y %H:%M:%S Manila')
+#     df['created_at'] = df['created_at'].dt.strftime('%a, %d %b %Y %H:%M:%S Manila')
+
+#     return df
+
+
 # Convert check_in and check_out timestamp string (YYYY-MM-DD HH:MM:SS) to minutes from midnight
 def data_prep(df):
-    # Convert strings to datetime
-    df['check_in'] = pd.to_datetime(df['check_in'])
-    df['check_out'] = pd.to_datetime(df['check_out'])
+    # # Convert strings to datetime
+    # df['check_in'] = pd.to_datetime(df['check_in'])
+    # df['check_out'] = pd.to_datetime(df['check_out'])
 
-    # Then extract minutes from midnight
-    df['check_in_minutes'] = df['check_in'].dt.hour * 60 + df['check_in'].dt.minute
-    df['check_out_minutes'] = df['check_out'].dt.hour * 60 + df['check_out'].dt.minute
+    # # Then extract minutes from midnight
+    # df['check_in_minutes'] = df['check_in'].dt.hour * 60 + df['check_in'].dt.minute
+    # df['check_out_minutes'] = df['check_out'].dt.hour * 60 + df['check_out'].dt.minute
 
+    df['single_signin'] = pd.to_datetime(df['single_signin'])
+    df['single_signin_minutes'] = df['single_signin'].dt.hour * 60 + df['single_signin'].dt.minute
     return df
+
+
 
 def start_anomaly_detection():
     prepData = data_prep(get_attendee_records())
-    selected_features = prepData[['check_in_minutes','check_out_minutes']]
-    model = IsolationForest(n_estimators=50,max_features=2,random_state=42)
+    selected_features = prepData[['single_signin']]
+    model = IsolationForest(n_estimators=50,contamination=0.01,max_features=1,random_state=42)
     model.fit(selected_features)
     prepData['anomaly_scores'] = model.decision_function(selected_features)
     prepData['anomaly'] = model.predict(selected_features)
 
+
+
     plt.scatter(
-        prepData['check_in_minutes'],
-        prepData['check_out_minutes'],
+        prepData['single_signin_minutes'],
+        prepData['single_signin'],
         c=prepData['anomaly'],
         cmap='coolwarm'
     )
-    plt.xlabel('Check-in Minutes')
-    plt.ylabel('Check-out Minutes')
+
+    plt.xlabel('Single Signin Minutes')
+    plt.ylabel('Attendance Sign in')
     plt.title('Anomalies in Attendance Data')
     plt.show()
+
+    # plt.scatter(
+    #     prepData['check_in_minutes'],
+    #     prepData['check_out_minutes'],
+    #     c=prepData['anomaly'],
+    #     cmap='coolwarm'
+    # )
+    # plt.xlabel('Check-in Minutes')
+    # plt.ylabel('Check-out Minutes')
+    # plt.title('Anomalies in Attendance Data')
+    # plt.show()
 
     return prepData
 

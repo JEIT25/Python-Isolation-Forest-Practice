@@ -6,7 +6,7 @@ from sklearn.ensemble import IsolationForest
 
 
 df = pd.read_csv('salary_data.csv')
-model = IsolationForest(n_estimators=50, max_samples='auto',max_features=1)
+model = IsolationForest(n_estimators=50, random_state=42, max_samples='auto')
 model.fit(df[['salary']])
 df['scores'] = model.decision_function(df[['salary']])
 df['anomaly'] = model.predict(df[['salary']])
